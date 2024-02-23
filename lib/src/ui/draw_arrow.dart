@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../flutter_flow_chart.dart';
 
@@ -8,13 +9,15 @@ class ArrowParams {
   final Color color;
   final Alignment startArrowPosition;
   final Alignment endArrowPosition;
+  final double dashSpace;
 
   const ArrowParams({
-    this.thickness = 1.7,
+    this.thickness = 2.5,
     this.color = Colors.black,
     this.startArrowPosition = Alignment.centerRight,
     this.endArrowPosition = Alignment.centerLeft,
-  });
+    dashSpace,
+  }) : dashSpace = dashSpace ?? 0;
 
   ArrowParams copyWith({
     double? thickness,
@@ -191,6 +194,7 @@ class _DrawArrowState extends State<DrawArrow> {
       onSecondaryTapDown: (details) =>
           secondaryTapPosition = details.localPosition,
       onTap: () {
+        debugPrint("Draw arrow tap registered");
         if (widget.onTap != null) {
           widget.onTap!(
             context,
@@ -232,7 +236,7 @@ class _DrawArrowState extends State<DrawArrow> {
       },
       child: RepaintBoundary(
         child: CustomPaint(
-          painter: ArrowPainter(
+          foregroundPainter: ArrowPainter(
             params: widget.arrowParams,
             from: from,
             to: to,
@@ -306,8 +310,9 @@ class ArrowPainter extends CustomPainter {
     );
 
     path.moveTo(p0.dx, p0.dy);
-    path.conicTo(p1.dx, p1.dy, p2.dx, p2.dy, 1.0);
-    path.conicTo(p3.dx, p3.dy, p4.dx, p4.dy, 1.0);
+    // path.conicTo(p1.dx, p1.dy, p2.dx, p2.dy, 1.0);
+    // path.conicTo(p3.dx, p3.dy, p4.dx, p4.dy, 1.0);
+    path.lineTo(p4.dx, p4.dy);
 
     // canvas.drawCircle(p0, 10, paint);
     // canvas.drawCircle(p1, 9, paint);
@@ -318,7 +323,31 @@ class ArrowPainter extends CustomPainter {
     paint.color = params.color;
     paint.strokeWidth = params.thickness;
     paint.style = PaintingStyle.stroke;
-    canvas.drawPath(path, paint);
+
+    bool doPaint = true;
+    double leftover = 0;
+    double previous = 0;
+
+    if (params.dashSpace > 0) {
+      for (PathMetric s in path.computeMetrics()) {
+        Path currPath;
+        for (double curr = params.dashSpace - leftover;
+            params.dashSpace < s.length;
+            curr += params.dashSpace) {
+          currPath = s.extractPath(previous, curr);
+          if (doPaint) {
+            canvas.drawPath(currPath, paint);
+          }
+          previous = curr;
+        }
+        leftover = s.length - previous;
+        if (doPaint) {
+          canvas.drawPath(s.extractPath(previous, s.length), paint);
+        }
+      }
+    } else {
+      canvas.drawPath(path, paint);
+    }
   }
 
   @override
@@ -326,7 +355,8 @@ class ArrowPainter extends CustomPainter {
       !(from == oldDelegate.from && to == oldDelegate.to);
 
   @override
-  bool? hitTest(Offset position) {
+  bool hitTest(Offset position) {
+    debugPrint("${path.contains(position)}");
     return path.contains(position);
   }
 }

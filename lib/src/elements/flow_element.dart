@@ -72,6 +72,12 @@ class FlowElement extends ChangeNotifier {
   /// Element text
   bool isResizing;
 
+  String stepTitle;
+  String stepInstructions;
+  bool allowPictures;
+  int responseType;
+  List<String> responseChoices;
+
   FlowElement({
     this.position = Offset.zero,
     this.size = Size.zero,
@@ -93,9 +99,15 @@ class FlowElement extends ChangeNotifier {
     this.borderThickness = 3,
     this.elevation = 4,
     next,
+    this.stepTitle = "",
+    this.stepInstructions = "",
+    this.allowPictures = true,
+    this.responseType = -1,
+    responseChoices,
   })  : next = next ?? [],
         id = '',
-        isResizing = false;
+        isResizing = false,
+        responseChoices = responseChoices ?? [];
 
   @override
   String toString() {
@@ -229,6 +241,11 @@ class FlowElement extends ChangeNotifier {
       'borderThickness': borderThickness,
       'elevation': elevation,
       'next': next.map((x) => x.toMap()).toList(),
+      'title': stepTitle,
+      'instructions': stepInstructions,
+      'allowPictures': allowPictures,
+      'responseType': responseType,
+      'responseChoices': responseChoices,
     };
   }
 
@@ -260,6 +277,13 @@ class FlowElement extends ChangeNotifier {
           (x) => ConnectionParams.fromMap(x as Map<String, dynamic>),
         ),
       ),
+      stepTitle: map['title'] as String,
+      stepInstructions: map['instructions'] as String,
+      allowPictures: map['allowPictures'] as bool,
+      responseType: map['responseType'] ?? -1,
+      responseChoices: map['responseChoices'] != null
+          ? List<String>.from(map['responseChoices']).cast()
+          : <String>[],
     );
     e.setId(map['id'] as String);
     return e;

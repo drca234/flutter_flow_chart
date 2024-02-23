@@ -99,7 +99,7 @@ class _GridBackgroundPainter extends CustomPainter {
     double startY = dy % (params.gridSquare * params.secondarySquareStep);
 
     // Calculate the number of lines to draw outside the visible area
-    int extraLines = 2;
+    int extraLines = 15;
 
     // Draw vertical lines
     for (double x = startX - extraLines * params.gridSquare;

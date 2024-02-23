@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +8,9 @@ import 'ui/element_widget.dart';
 import 'ui/grid_background.dart';
 import 'dashboard.dart';
 import 'ui/draw_arrow.dart';
+
+TransformationController controller = TransformationController();
+Size gridSize = const Size(1920 * 8, 1080 * 8);
 
 /// Main flow chart Widget.
 /// It displays the background grid, all the elements and connection lines
@@ -137,6 +142,38 @@ class _FlowChartState extends State<FlowChart> {
   void initState() {
     super.initState();
     widget.dashboard.addListener(_elementChanged);
+    widget.dashboard.onRecenter = _onRecenter;
+
+    if (mounted) {
+      controller.value = Matrix4.identity();
+      Offset center = Offset(
+          gridSize.width / 2 - WidgetsBinding.instance.platformDispatcher.views.first.physicalSize.width / 2,
+          gridSize.height / 2 - WidgetsBinding.instance.platformDispatcher.views.first.physicalSize.height / 2);
+      controller.value[12] = -center.dx +
+          (1 - controller.value[0]) * WidgetsBinding.instance.platformDispatcher.views.first.physicalSize.width / 2;
+      controller.value[13] = -center.dy * controller.value[0] +
+          (1 - controller.value[0]) * WidgetsBinding.instance.platformDispatcher.views.first.physicalSize.height / 2;
+    }
+  }
+
+  _onRecenter() {
+    controller.value = Matrix4.identity();
+    Offset center = Offset(
+        gridSize.width / 2 - MediaQuery.of(context).size.width / 2,
+        gridSize.height / 2 - MediaQuery.of(context).size.height / 2);
+    // debugPrint("Center: $center");
+    // debugPrint("Screen size: ${MediaQuery.of(context).size}");
+    controller.value[12] = -center.dx +
+        (1 - controller.value[0]) * MediaQuery.of(context).size.width / 2;
+    controller.value[13] = -center.dy * controller.value[0] +
+        (1 - controller.value[0]) * MediaQuery.of(context).size.height / 2;
+    // debugPrint("offset x: ${controller.value[12]}");
+    // debugPrint("offset y: ${controller.value[13]}");
+
+    for (var element in widget.dashboard.elements) {
+      element.position += center;
+    }
+    setState(() {});
   }
 
   @override
@@ -171,134 +208,149 @@ class _FlowChartState extends State<FlowChart> {
     Offset tapDownPos = Offset.zero;
     Offset secondaryTapDownPos = Offset.zero;
     return ClipRect(
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // Draw the grid
-          Positioned.fill(
-            child: GestureDetector(
-              onTapDown: (details) {
-                tapDownPos = details.globalPosition;
-              },
-              onSecondaryTapDown: (details) {
-                secondaryTapDownPos = details.globalPosition;
-              },
-              onTap: widget.onDashboardTapped == null
-                  ? null
-                  : () => widget.onDashboardTapped!(
-                        gridKey.currentContext!,
-                        tapDownPos,
-                      ),
-              onLongPress: widget.onDashboardLongtTapped == null
-                  ? null
-                  : () => widget.onDashboardLongtTapped!(
-                        gridKey.currentContext!,
-                        tapDownPos,
-                      ),
-              onSecondaryTap: () {
-                if (widget.onDashboardSecondaryTapped != null) {
-                  widget.onDashboardSecondaryTapped!(
-                    gridKey.currentContext!,
-                    secondaryTapDownPos,
-                  );
-                }
-              },
-              onSecondaryLongPress: () {
-                if (widget.onDashboardSecondaryLongTapped != null) {
-                  widget.onDashboardSecondaryLongTapped!(
-                    gridKey.currentContext!,
-                    secondaryTapDownPos,
-                  );
-                }
-              },
-              onPanUpdate: (details) {
-                for (int i = 0; i < widget.dashboard.elements.length; i++) {
-                  widget.dashboard.elements[i].position += details.delta;
-                }
-                widget.dashboard.gridBackgroundParams.offset = details.delta;
-                setState(() {});
-              },
-              child: GridBackground(
-                key: gridKey,
-                params: widget.dashboard.gridBackgroundParams,
+      child: InteractiveViewer(
+        constrained: false,
+        panEnabled: false,
+        transformationController: controller,
+        minScale: .25,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Draw the grid
+            SizedBox(
+              height: gridSize.height,
+              width: gridSize.width,
+              child: GestureDetector(
+                onTapDown: (details) {
+                  debugPrint("Registered tap");
+                  final RenderBox referenceBox =
+                      context.findRenderObject() as RenderBox;
+                  tapDownPos = controller.toScene(
+                      referenceBox.globalToLocal(details.globalPosition));
+                },
+                onSecondaryTapDown: (details) {
+                  secondaryTapDownPos = details.globalPosition;
+                },
+                onTap: widget.onDashboardTapped == null
+                    ? null
+                    : () => widget.onDashboardTapped!(
+                          gridKey.currentContext!,
+                          tapDownPos,
+                        ),
+                onLongPress: widget.onDashboardLongtTapped == null
+                    ? null
+                    : () => widget.onDashboardLongtTapped!(
+                          gridKey.currentContext!,
+                          tapDownPos,
+                        ),
+                onSecondaryTap: () {
+                  if (widget.onDashboardSecondaryTapped != null) {
+                    widget.onDashboardSecondaryTapped!(
+                      gridKey.currentContext!,
+                      secondaryTapDownPos,
+                    );
+                  }
+                },
+                onSecondaryLongPress: () {
+                  if (widget.onDashboardSecondaryLongTapped != null) {
+                    widget.onDashboardSecondaryLongTapped!(
+                      gridKey.currentContext!,
+                      secondaryTapDownPos,
+                    );
+                  }
+                },
+                onPanUpdate: (details) {
+                  for (int i = 0; i < widget.dashboard.elements.length; i++) {
+                    widget.dashboard.elements[i].position += details.delta;
+                  }
+                  widget.dashboard.gridBackgroundParams.offset = details.delta;
+                  setState(() {});
+                },
+                child: GridBackground(
+                  key: gridKey,
+                  params: widget.dashboard.gridBackgroundParams,
+                ),
               ),
             ),
-          ),
-          // Draw elements
-          for (int i = 0; i < widget.dashboard.elements.length; i++)
-            ElementWidget(
-              key: UniqueKey(),
-              dashboard: widget.dashboard,
-              element: widget.dashboard.elements.elementAt(i),
-              onElementPressed: widget.onElementPressed == null
-                  ? null
-                  : (context, position) => widget.onElementPressed!(
-                        context,
-                        position,
-                        widget.dashboard.elements.elementAt(i),
-                      ),
-              onElementSecondaryTapped: widget.onElementSecondaryTapped == null
-                  ? null
-                  : (context, position) => widget.onElementSecondaryTapped!(
-                        context,
-                        position,
-                        widget.dashboard.elements.elementAt(i),
-                      ),
-              onElementLongPressed: widget.onElementLongPressed == null
-                  ? null
-                  : (context, position) => widget.onElementLongPressed!(
-                        context,
-                        position,
-                        widget.dashboard.elements.elementAt(i),
-                      ),
-              onElementSecondaryLongTapped:
-                  widget.onElementSecondaryLongTapped == null
-                      ? null
-                      : (context, position) =>
-                          widget.onElementSecondaryLongTapped!(
-                            context,
-                            position,
-                            widget.dashboard.elements.elementAt(i),
-                          ),
-              onHandlerPressed: widget.onHandlerPressed == null
-                  ? null
-                  : (context, position, handler, element) => widget
-                      .onHandlerPressed!(context, position, handler, element),
-              onHandlerSecondaryTapped: widget.onHandlerSecondaryTapped == null
-                  ? null
-                  : (context, position, handler, element) =>
-                      widget.onHandlerSecondaryTapped!(
-                          context, position, handler, element),
-              onHandlerLongPressed: widget.onHandlerLongPressed == null
-                  ? null
-                  : (context, position, handler, element) =>
-                      widget.onHandlerLongPressed!(
-                          context, position, handler, element),
-              onHandlerSecondaryLongTapped:
-                  widget.onHandlerSecondaryLongTapped == null
-                      ? null
-                      : (context, position, handler, element) =>
-                          widget.onHandlerSecondaryLongTapped!(
-                              context, position, handler, element),
-            ),
-          // Draw arrows
-          for (int i = 0; i < widget.dashboard.elements.length; i++)
-            for (int n = 0; n < widget.dashboard.elements[i].next.length; n++)
-              DrawArrow(
+            // Draw elements
+            for (int i = 0; i < widget.dashboard.elements.length; i++)
+              ElementWidget(
                 key: UniqueKey(),
-                srcElement: widget.dashboard.elements[i],
-                destElement: widget.dashboard.elements[widget.dashboard
-                    .findElementIndexById(
-                        widget.dashboard.elements[i].next[n].destElementId)],
-                arrowParams: widget.dashboard.elements[i].next[n].arrowParams,
-                onTap: widget.onLineTapped,
-                onLongPress: widget.onLineLongPressed,
-                onSecondaryTap: widget.onLineSecondaryTapped,
-                onSecondaryLongPress: widget.onLineSecondaryLongTapped,
+                dashboard: widget.dashboard,
+                element: widget.dashboard.elements.elementAt(i),
+                controller: controller,
+                onElementPressed: widget.onElementPressed == null
+                    ? null
+                    : (context, position) => widget.onElementPressed!(
+                          context,
+                          position,
+                          widget.dashboard.elements.elementAt(i),
+                        ),
+                onElementSecondaryTapped: widget.onElementSecondaryTapped ==
+                        null
+                    ? null
+                    : (context, position) => widget.onElementSecondaryTapped!(
+                          context,
+                          position,
+                          widget.dashboard.elements.elementAt(i),
+                        ),
+                onElementLongPressed: widget.onElementLongPressed == null
+                    ? null
+                    : (context, position) => widget.onElementLongPressed!(
+                          context,
+                          position,
+                          widget.dashboard.elements.elementAt(i),
+                        ),
+                onElementSecondaryLongTapped:
+                    widget.onElementSecondaryLongTapped == null
+                        ? null
+                        : (context, position) =>
+                            widget.onElementSecondaryLongTapped!(
+                              context,
+                              position,
+                              widget.dashboard.elements.elementAt(i),
+                            ),
+                onHandlerPressed: widget.onHandlerPressed == null
+                    ? null
+                    : (context, position, handler, element) => widget
+                        .onHandlerPressed!(context, position, handler, element),
+                onHandlerSecondaryTapped:
+                    widget.onHandlerSecondaryTapped == null
+                        ? null
+                        : (context, position, handler, element) =>
+                            widget.onHandlerSecondaryTapped!(
+                                context, position, handler, element),
+                onHandlerLongPressed: widget.onHandlerLongPressed == null
+                    ? null
+                    : (context, position, handler, element) =>
+                        widget.onHandlerLongPressed!(
+                            context, position, handler, element),
+                onHandlerSecondaryLongTapped:
+                    widget.onHandlerSecondaryLongTapped == null
+                        ? null
+                        : (context, position, handler, element) =>
+                            widget.onHandlerSecondaryLongTapped!(
+                                context, position, handler, element),
               ),
-          // user drawing when connecting elements
-          const DrawingArrowWidget(),
-        ],
+            // Draw arrows
+            for (int i = 0; i < widget.dashboard.elements.length; i++)
+              for (int n = 0; n < widget.dashboard.elements[i].next.length; n++)
+                DrawArrow(
+                  key: UniqueKey(),
+                  srcElement: widget.dashboard.elements[i],
+                  destElement: widget.dashboard.elements[widget.dashboard
+                      .findElementIndexById(
+                          widget.dashboard.elements[i].next[n].destElementId)],
+                  arrowParams: widget.dashboard.elements[i].next[n].arrowParams,
+                  onTap: widget.onLineTapped,
+                  onLongPress: widget.onLineLongPressed,
+                  onSecondaryTap: widget.onLineSecondaryTapped,
+                  onSecondaryLongPress: widget.onLineSecondaryLongTapped,
+                ),
+            // user drawing when connecting elements
+            const DrawingArrowWidget(),
+          ],
+        ),
       ),
     );
   }
@@ -335,8 +387,12 @@ class _DrawingArrowWidgetState extends State<DrawingArrowWidget> {
     return CustomPaint(
       painter: ArrowPainter(
         params: DrawingArrow.instance.params,
-        from: DrawingArrow.instance.from,
-        to: DrawingArrow.instance.to,
+        from: (DrawingArrow.instance.from -
+                Offset(controller.value[12], controller.value[13])) /
+            controller.value[0],
+        to: (DrawingArrow.instance.to -
+                Offset(controller.value[12], controller.value[13])) /
+            controller.value[0],
       ),
     );
   }

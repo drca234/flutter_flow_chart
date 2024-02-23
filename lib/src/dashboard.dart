@@ -15,6 +15,7 @@ class Dashboard extends ChangeNotifier {
   Size dashboardSize;
   Offset handlerFeedbackOffset;
   GridBackgroundParams gridBackgroundParams;
+  VoidCallback? onRecenter;
 
   Dashboard()
       : elements = [],
@@ -235,14 +236,18 @@ class Dashboard extends ChangeNotifier {
 
   /// recenter the dashboard
   void recenter() {
-    Offset center = Offset(dashboardSize.width / 2, dashboardSize.height / 2);
-    gridBackgroundParams.offset = center;
+    // center should be where the rough center of the first element is, disregarding decorations
     if (elements.isNotEmpty) {
+      Offset center = Offset(
+          dashboardSize.width / 2 - elements.first.size.width / 2,
+          dashboardSize.height / 2 - elements.first.size.height / 2);
+      gridBackgroundParams.offset = center;
       Offset currentDeviation = elements.first.position - center;
       for (FlowElement element in elements) {
         element.position -= currentDeviation;
       }
     }
+    if (onRecenter != null) onRecenter!();
     notifyListeners();
   }
 

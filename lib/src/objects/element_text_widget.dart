@@ -14,14 +14,20 @@ class ElementTextWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.center,
-      child: Text(
-        element.text,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: element.textColor,
-          fontSize: element.textSize,
-          fontWeight: element.textIsBold ? FontWeight.bold : FontWeight.normal,
-          fontFamily: element.fontFamily,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 5.0),
+        child: Text(
+          maxLines: 3,
+          softWrap: true,
+          element.text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: element.textColor,
+            fontSize: element.textSize,
+            overflow: TextOverflow.ellipsis,
+            fontWeight: element.textIsBold ? FontWeight.bold : FontWeight.normal,
+            fontFamily: element.fontFamily,
+          ),
         ),
       ),
     );

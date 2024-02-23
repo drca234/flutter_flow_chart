@@ -12,6 +12,7 @@ import 'resize_widget.dart';
 class ElementWidget extends StatefulWidget {
   final Dashboard dashboard;
   final FlowElement element;
+  final TransformationController? controller;
   final Function(BuildContext context, Offset position)? onElementPressed;
   final Function(BuildContext context, Offset position)?
       onElementSecondaryTapped;
@@ -55,6 +56,7 @@ class ElementWidget extends StatefulWidget {
     this.onHandlerSecondaryTapped,
     this.onHandlerLongPressed,
     this.onHandlerSecondaryLongTapped,
+    this.controller,
   });
 
   @override
@@ -155,11 +157,11 @@ class _ElementWidgetState extends State<ElementWidget> {
           },
           child: Draggable<FlowElement>(
             data: widget.element,
-            dragAnchorStrategy: childDragAnchorStrategy,
-            childWhenDragging: const SizedBox.shrink(),
+            dragAnchorStrategy: pointerDragAnchorStrategy,
+            childWhenDragging: null,
             feedback: Material(
               color: Colors.transparent,
-              child: element,
+              child: null,
             ),
             child: ElementHandlers(
               dashboard: widget.dashboard,
@@ -172,13 +174,25 @@ class _ElementWidgetState extends State<ElementWidget> {
               child: element,
             ),
             onDragUpdate: (details) {
-              widget.element.changePosition(details.globalPosition -
-                  widget.dashboard.dashboardPosition -
-                  delta);
+              widget.element.changePosition((details.globalPosition -
+                          widget.dashboard.dashboardPosition -
+                          Offset(controller.value[12], controller.value[13])) /
+                      controller.value[0] -
+                  Offset(widget.element.size.width / 2,
+                      widget.element.size.height / 2));
             },
             onDragEnd: (details) {
-              widget.element.changePosition(
-                  details.offset - widget.dashboard.dashboardPosition);
+              debugPrint("Matrix: ${controller.value}");
+              debugPrint("Element: ${widget.element.position}");
+              debugPrint("details.offset: ${details.offset}");
+              debugPrint(
+                  "widget.dashboard.dashboardPosition: ${widget.dashboard.dashboardPosition}");
+              widget.element.changePosition((details.offset -
+                          widget.dashboard.dashboardPosition -
+                          Offset(controller.value[12], controller.value[13])) /
+                      controller.value[0] -
+                  Offset(widget.element.size.width / 2,
+                      widget.element.size.height / 2));
             },
           ),
         ),
